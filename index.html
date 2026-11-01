@@ -21,17 +21,19 @@
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
-    // Definición de perfiles/usuarios del negocio
+    // Usuarios con sus PINs configurados (puedes cambiarlos aquí mismo)
     const USUARIOS = [
-      { id: 'chofer', nombre: 'Chofer (Juan)', rol: 'chofer' },
-      { id: 'prop1', nombre: 'Propietario 1 (Carlos)', rol: 'propietario' },
-      { id: 'prop2', nombre: 'Propietario 2 (Maria)', rol: 'propietario' },
-      { id: 'admin', nombre: 'Administrador (General)', rol: 'admin' },
+      { id: 'chofer', nombre: 'Chofer (Juan)', rol: 'chofer', pin: '' },
+      { id: 'prop1', nombre: 'Propietario 1 (Carlos)', rol: 'propietario', pin: '1234' },
+      { id: 'prop2', nombre: 'Propietario 2 (Maria)', rol: 'propietario', pin: '5678' },
+      { id: 'admin', nombre: 'Administrador (General)', rol: 'admin', pin: '0000' },
     ];
 
     function App() {
-      // Estado de Autenticación Simple (Guarda el usuario activo)
       const [usuarioActual, setUsuarioActual] = useState(null);
+      const [usuarioSeleccionando, setUsuarioSeleccionando] = useState(null);
+      const [pinIngresado, setPinIngresado] = useState('');
+      const [errorPin, setErrorPin] = useState(false);
 
       const [vista, setVista] = useState('recaudacion');
       const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -131,7 +133,21 @@
         }
       };
 
-      // PANTALLA DE LOGIN INICIAL (Simple y amigable)
+      const verificarPin = (e) => {
+        e.preventDefault();
+        if (pinIngresado === usuarioSeleccionando.pin) {
+          setUsuarioActual(usuarioSeleccionando);
+          setUsuarioSeleccionando(null);
+          setPinIngresado('');
+          setErrorPin(false);
+          if (usuarioSeleccionando.rol === 'chofer') setVista('recaudacion');
+        } else {
+          setErrorPin(true);
+          setPinIngresado('');
+        }
+      };
+
+      // PANTALLA DE ACCESO
       if (!usuarioActual) {
         return (
           <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
@@ -139,24 +155,64 @@
               <div className="text-center space-y-1">
                 <span className="text-3xl">🛺</span>
                 <h1 className="text-lg font-bold text-amber-400">Triciclo Familiar</h1>
-                <p className="text-xs text-slate-400">Selecciona tu perfil para ingresar</p>
+                <p className="text-xs text-slate-400">Selecciona tu perfil de acceso</p>
               </div>
 
-              <div className="space-y-2 pt-2">
-                {USUARIOS.map(user => (
-                  <button
-                    key={user.id}
-                    onClick={() => {
-                      setUsuarioActual(user);
-                      if (user.rol === 'chofer') setVista('recaudacion');
-                    }}
-                    className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left"
-                  >
-                    <span>{user.nombre}</span>
-                    <span className="text-[10px] opacity-60 uppercase bg-slate-950 px-2 py-0.5 rounded">{user.rol}</span>
-                  </button>
-                ))}
-              </div>
+              {usuarioSeleccionando ? (
+                <form onSubmit={verificarPin} className="space-y-3 pt-2">
+                  <div className="text-xs text-amber-400 font-semibold text-center">
+                    Ingresa el PIN para {usuarioSeleccionando.nombre}
+                  </div>
+                  <input 
+                    type="password"
+                    maxLength="4"
+                    placeholder="••••"
+                    autoFocus
+                    value={pinIngresado}
+                    onChange={(e) => setPinIngresado(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 text-center tracking-widest text-lg text-white rounded-xl py-2 focus:outline-none focus:border-amber-500"
+                  />
+                  {errorPin && <p className="text-[10px] text-rose-400 text-center">PIN incorrecto. Intenta de nuevo.</p>}
+                  
+                  <div className="flex gap-2 pt-1">
+                    <button 
+                      type="button" 
+                      onClick={() => { setUsuarioSeleccionando(null); setPinIngresado(''); setErrorPin(false); }}
+                      className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl text-slate-300"
+                    >
+                      Atrás
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 rounded-xl"
+                    >
+                      Entrar
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-2 pt-2">
+                  {USUARIOS.map(user => (
+                    <button
+                      key={user.id}
+                      onClick={() => {
+                        if (user.pin === '') {
+                          setUsuarioActual(user);
+                          setVista('recaudacion');
+                        } else {
+                          setUsuarioSeleccionando(user);
+                        }
+                      }}
+                      className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left group"
+                    >
+                      <span>{user.nombre}</span>
+                      <span className="text-[10px] opacity-60 uppercase bg-slate-950 group-hover:bg-amber-600 group-hover:text-white px-2 py-0.5 rounded">
+                        {user.pin ? '🔒 Protegido' : 'Libre'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -175,7 +231,6 @@
                 </div>
               </div>
 
-              {/* Botón Salir / Cambiar de usuario */}
               <button 
                 onClick={() => setUsuarioActual(null)}
                 className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-all"
@@ -185,7 +240,7 @@
             </div>
           </header>
 
-          {/* NAVEGACIÓN SEGÚN ROL */}
+          {/* NAVEGACIÓN */}
           <nav className="max-w-md mx-auto p-4 grid grid-cols-3 gap-2">
             <button 
               onClick={() => setVista('recaudacion')}
@@ -226,7 +281,6 @@
               </div>
             )}
 
-            {/* VISTA RECAUDACIÓN */}
             {vista === 'recaudacion' && (
               <div className="space-y-4">
                 <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
@@ -309,7 +363,6 @@
               </div>
             )}
 
-            {/* VISTA GASTOS */}
             {vista === 'gastos' && usuarioActual.rol !== 'chofer' && (
               <div className="space-y-4">
                 <form onSubmit={agregarGasto} className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
@@ -340,7 +393,7 @@
                       <label className="text-xs text-slate-400 block mb-1">Categoría:</label>
                       <select
                         value={nuevoGasto.categoria}
-                        onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })}
+                        onChange={(e) => setNuevoGasto({ ...nuevoGaturra: e.target.value, categoria: e.target.value })}
                         className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-sm focus:outline-none"
                       >
                         <option value="Mantenimiento">Mantenimiento</option>
@@ -377,7 +430,6 @@
               </div>
             )}
 
-            {/* VISTA RESUMEN */}
             {vista === 'resumen' && usuarioActual.rol !== 'chofer' && (
               <div className="space-y-4">
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
