@@ -6,8 +6,8 @@ import {
 
 // === CONFIGURACIÓN DE SUPABASE ===
 // Reemplaza estos dos valores con los que obtuviste en Project Settings > API en tu Supabase
-const SUPABASE_URL = "TU_SUPABASE_URL_AQUI"; 
-const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY_AQUI";
+const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co/rest/v1/"; 
+const SUPABASE_ANON_KEY = "sb_publishable_1e1lSFJxCAskn3BWzSpQFA_iKZ0B7NU";
 
 const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
