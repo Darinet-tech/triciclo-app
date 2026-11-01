@@ -21,8 +21,18 @@
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
+    // Definición de perfiles/usuarios del negocio
+    const USUARIOS = [
+      { id: 'chofer', nombre: 'Chofer (Juan)', rol: 'chofer' },
+      { id: 'prop1', nombre: 'Propietario 1 (Carlos)', rol: 'propietario' },
+      { id: 'prop2', nombre: 'Propietario 2 (Maria)', rol: 'propietario' },
+      { id: 'admin', nombre: 'Administrador (General)', rol: 'admin' },
+    ];
+
     function App() {
-      const [rol, setRol] = useState('chofer');
+      // Estado de Autenticación Simple (Guarda el usuario activo)
+      const [usuarioActual, setUsuarioActual] = useState(null);
+
       const [vista, setVista] = useState('recaudacion');
       const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
       
@@ -61,6 +71,7 @@
           porcentaje_chofer: porcentajeChofer,
           pago_chofer: pagoChofer,
           pago_propietarios: pagoPropietarios,
+          registrado_por: usuarioActual.nombre,
           desglose_billetes: JSON.stringify(billetes),
           creado_en: new Date().toISOString()
         };
@@ -97,7 +108,7 @@
           concepto: nuevoGasto.concepto,
           monto: Number(nuevoGasto.monto),
           categoria: nuevoGasto.categoria,
-          registrado_por: rol,
+          registrado_por: usuarioActual.nombre,
           creado_en: new Date().toISOString()
         };
 
@@ -120,39 +131,61 @@
         }
       };
 
+      // PANTALLA DE LOGIN INICIAL (Simple y amigable)
+      if (!usuarioActual) {
+        return (
+          <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
+              <div className="text-center space-y-1">
+                <span className="text-3xl">🛺</span>
+                <h1 className="text-lg font-bold text-amber-400">Triciclo Familiar</h1>
+                <p className="text-xs text-slate-400">Selecciona tu perfil para ingresar</p>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                {USUARIOS.map(user => (
+                  <button
+                    key={user.id}
+                    onClick={() => {
+                      setUsuarioActual(user);
+                      if (user.rol === 'chofer') setVista('recaudacion');
+                    }}
+                    className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left"
+                  >
+                    <span>{user.nombre}</span>
+                    <span className="text-[10px] opacity-60 uppercase bg-slate-950 px-2 py-0.5 rounded">{user.rol}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 font-sans">
           {/* BARRA SUPERIOR */}
           <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
             <div className="max-w-md mx-auto flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🛺</span>
-                <h1 className="font-bold text-lg text-amber-400">Triciclo Control</h1>
+                <span className="text-lg">🛺</span>
+                <div>
+                  <h1 className="font-bold text-sm text-amber-400 leading-none">Triciclo Control</h1>
+                  <span className="text-[10px] text-slate-400">{usuarioActual.nombre}</span>
+                </div>
               </div>
 
-              {/* Selector de Rol */}
-              <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
-                <span className="text-xs text-slate-400 ml-1">Rol:</span>
-                <select 
-                  value={rol} 
-                  onChange={(e) => {
-                    setRol(e.target.value);
-                    if (e.target.value === 'chofer' && (vista === 'gastos' || vista === 'resumen')) {
-                      setVista('recaudacion');
-                    }
-                  }}
-                  className="bg-transparent text-xs text-amber-400 font-semibold focus:outline-none cursor-pointer pr-1"
-                >
-                  <option value="chofer" className="bg-slate-900 text-slate-200">Chofer</option>
-                  <option value="propietario1" className="bg-slate-900 text-slate-200">Propietario 1</option>
-                  <option value="propietario2" className="bg-slate-900 text-slate-200">Propietario 2</option>
-                  <option value="admin" className="bg-slate-900 text-slate-200">Admin</option>
-                </select>
-              </div>
+              {/* Botón Salir / Cambiar de usuario */}
+              <button 
+                onClick={() => setUsuarioActual(null)}
+                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-all"
+              >
+                Cerrar Sesión
+              </button>
             </div>
           </header>
 
-          {/* NAVEGACIÓN DINÁMICA SEGÚN ROL */}
+          {/* NAVEGACIÓN SEGÚN ROL */}
           <nav className="max-w-md mx-auto p-4 grid grid-cols-3 gap-2">
             <button 
               onClick={() => setVista('recaudacion')}
@@ -160,11 +193,10 @@
                 vista === 'recaudacion' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
               }`}
             >
-              💵 {rol === 'chofer' ? 'Mi Recaudación' : 'Recaudación'}
+              💵 {usuarioActual.rol === 'chofer' ? 'Mi Recaudación' : 'Recaudación'}
             </button>
 
-            {/* Gastos ocultos para el chofer */}
-            {rol !== 'chofer' && (
+            {usuarioActual.rol !== 'chofer' && (
               <button 
                 onClick={() => setVista('gastos')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
@@ -175,8 +207,7 @@
               </button>
             )}
 
-            {/* Resumen adaptado */}
-            {rol !== 'chofer' && (
+            {usuarioActual.rol !== 'chofer' && (
               <button 
                 onClick={() => setVista('resumen')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
@@ -251,10 +282,10 @@
 
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                      <span className="text-xs text-slate-400 block mb-1">Tu Pago (Chofer):</span>
+                      <span className="text-xs text-slate-400 block mb-1">Pago Chofer:</span>
                       <span className="text-lg font-black text-emerald-400">${pagoChofer.toLocaleString()}</span>
                     </div>
-                    {rol !== 'chofer' && (
+                    {usuarioActual.rol !== 'chofer' && (
                       <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
                         <span className="text-xs text-slate-400 block mb-1">Propietarios:</span>
                         <span className="text-lg font-black text-amber-400">${pagoPropietarios.toLocaleString()}</span>
@@ -278,8 +309,8 @@
               </div>
             )}
 
-            {/* VISTA GASTOS (Solo Propietarios y Admin) */}
-            {vista === 'gastos' && rol !== 'chofer' && (
+            {/* VISTA GASTOS */}
+            {vista === 'gastos' && usuarioActual.rol !== 'chofer' && (
               <div className="space-y-4">
                 <form onSubmit={agregarGasto} className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
                   <h2 className="text-sm font-bold text-amber-400 uppercase">Registrar Gasto</h2>
@@ -346,8 +377,8 @@
               </div>
             )}
 
-            {/* VISTA RESUMEN (Solo Propietarios y Admin) */}
-            {vista === 'resumen' && rol !== 'chofer' && (
+            {/* VISTA RESUMEN */}
+            {vista === 'resumen' && usuarioActual.rol !== 'chofer' && (
               <div className="space-y-4">
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                   <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Resumen General</h2>
