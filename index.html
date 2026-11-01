@@ -16,8 +16,8 @@
     const { useState, useEffect } = React;
 
     // === CONFIGURACIÓN DE SUPABASE ===
-    const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co/rest/v1/"; 
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbWZubHdmbXNubnp5a2JlZHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MDE0OTYsImV4cCI6MjEwOTA3NzQ5Nn0.Y8bJ0ZWJv744L_9nsMzANtFoz1ihC3UQuMM1DH4QzfE";
+    const SUPABASE_URL = "TU_SUPABASE_URL_AQUI"; 
+    const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY_AQUI";
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
@@ -437,4 +437,33 @@
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between p-2 bg-slate-950 rounded">
                       <span className="text-slate-400">Total Recaudaciones:</span>
-                      <span className="font-bold text-white">${
+                      <span className="font-bold text-white">${jornadas.reduce((a, b) => a + Number(b.total_recaudado), 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-slate-950 rounded">
+                      <span className="text-slate-400">Total Pagado a Chofer:</span>
+                      <span className="font-bold text-emerald-400">${jornadas.reduce((a, b) => a + Number(b.pago_chofer), 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-slate-950 rounded">
+                      <span className="text-slate-400">Total Gastos Operativos:</span>
+                      <span className="font-bold text-rose-400">${gastos.reduce((a, b) => a + Number(b.monto), 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm mt-3">
+                      <span className="font-bold text-amber-400">Ganancia Neta Propietarios:</span>
+                      <span className="font-black text-amber-400">
+                        ${(jornadas.reduce((a, b) => a + Number(b.pago_propietarios), 0) - gastos.reduce((a, b) => a + Number(b.monto), 0)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
