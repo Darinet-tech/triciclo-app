@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+const { useState, useEffect } = React;
 import { 
   Calculator, DollarSign, Wrench, Calendar, UserCheck, 
   TrendingUp, Shield, Plus, Trash2, RefreshCw, Send, CheckCircle2 
