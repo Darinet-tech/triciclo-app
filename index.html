@@ -4,11 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control Triciclo Familiar</title>
-  <meta name="theme-color" content="#0f172a">
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <div id="root"></div>
@@ -17,12 +16,9 @@
     const { useState, useEffect } = React;
 
     // === CONFIGURACIÓN DE SUPABASE ===
-    // Asegúrate de pegar solo el dominio principal (Ej: https://xxxx.supabase.co)
+    // Recuerda poner tu URL limpia (Ej: https://xxxx.supabase.co)
     const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co"; 
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbWZubHdmbXNubnp5a2JlZHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MDE0OTYsImV4cCI6MjEwOTA3NzQ5Nn0.Y8bJ0ZWJv744L_9nsMzANtFoz1ihC3UQuMM1DH4QzfE";
-
-    // Limpieza de URL
-    const SUPABASE_URL = RAW_SUPABASE_URL.trim().replace(/\/+$/, '');
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
@@ -42,13 +38,12 @@
       const [vista, setVista] = useState('recaudacion');
       const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
       
-      const [billetes, setBilletes] = useState(
-        DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {})
-      );
+      const [billetes, setBilletes] = useState({
+        2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0
+      });
       const [porcentajeChofer, setPorcentajeChofer] = useState(50);
       const [guardando, setGuardando] = useState(false);
       const [mensajeExito, setMensajeExito] = useState('');
-      const [errorDetallado, setErrorDetallado] = useState('');
 
       const [gastos, setGastos] = useState([]);
       const [nuevoGasto, setNuevoGasto] = useState({ concepto: '', monto: '', categoria: 'Mantenimiento' });
@@ -56,38 +51,23 @@
 
       useEffect(() => {
         if (usuarioActual && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-          cargarDatosSupabase();
+          cargarDatos();
         }
       }, [usuarioActual]);
 
-      const cargarDatosSupabase = async () => {
+      const cargarDatos = async () => {
         try {
-          const resJornadas = await fetch(`${SUPABASE_URL}/rest/v1/jornadas?select=*`, {
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
+          const resJ = await fetch(`${SUPABASE_URL}/rest/v1/jornadas?select=*`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
           });
-          if (resJornadas.ok) {
-            const dataJ = await resJornadas.json();
-            setJornadas(dataJ);
-          } else {
-            const errText = await resJornadas.text();
-            console.error("Error al cargar jornadas:", errText);
-          }
+          if (resJ.ok) setJornadas(await resJ.json());
 
-          const resGastos = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*`, {
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
+          const resG = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
           });
-          if (resGastos.ok) {
-            const dataG = await resGastos.json();
-            setGastos(dataG);
-          }
+          if (resG.ok) setGastos(await resG.json());
         } catch (e) {
-          console.error("Error de conexión con Supabase:", e);
+          console.error(e);
         }
       };
 
@@ -104,14 +84,12 @@
 
       const guardarJornada = async () => {
         if (totalRecaudado === 0) {
-          alert("Por favor ingresa al menos un billete.");
+          alert("Ingresa al menos un billete.");
           return;
         }
 
         setGuardando(true);
-        setErrorDetallado('');
-
-        const datosJornada = {
+        const datos = {
           fecha,
           total_recaudado: totalRecaudado,
           porcentaje_chofer: porcentajeChofer,
@@ -122,9 +100,7 @@
 
         try {
           if (SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            const endpoint = `${SUPABASE_URL}/rest/v1/jornadas`;
-            
-            const res = await fetch(endpoint, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/jornadas`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -132,27 +108,25 @@
                 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 'Prefer': 'return=representation'
               },
-              body: JSON.stringify(datosJornada)
+              body: JSON.stringify(datos)
             });
 
             if (res.ok) {
-              const dataGuardada = await res.json();
-              setJornadas(prev => [dataGuardada[0] || datosJornada, ...prev]);
-              setBilletes(DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {}));
-              setMensajeExito('¡Jornada registrada en Supabase con éxito!');
-              setTimeout(() => setMensajeExito(''), 3500);
+              const data = await res.json();
+              setJornadas(prev => [data[0] || datos, ...prev]);
             } else {
-              const errBody = await res.text();
-              setErrorDetallado(`Ruta intentada: ${endpoint} | Respuesta Supabase: ${errBody}`);
+              const err = await res.text();
+              alert("Error Supabase: " + err);
             }
           } else {
-            setJornadas(prev => [datosJornada, ...prev]);
-            setBilletes(DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {}));
-            setMensajeExito('Guardado localmente (Claves no configuradas).');
+            setJornadas(prev => [datos, ...prev]);
           }
+
+          setBilletes({ 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0 });
+          setMensajeExito('¡Jornada registrada con éxito!');
+          setTimeout(() => setMensajeExito(''), 3000);
         } catch (e) {
-          console.error(e);
-          setErrorDetallado(`Error de conexión/red: ${e.message}`);
+          alert("Error de conexión: " + e.message);
         } finally {
           setGuardando(false);
         }
@@ -183,8 +157,8 @@
               body: JSON.stringify(gastoObj)
             });
             if (res.ok) {
-              const dataG = await res.json();
-              setGastos(prev => [dataG[0] || gastoObj, ...prev]);
+              const data = await res.json();
+              setGastos(prev => [data[0] || gastoObj, ...prev]);
             }
           } else {
             setGastos(prev => [gastoObj, ...prev]);
@@ -196,15 +170,12 @@
       };
 
       const eliminarJornada = async (id, indexLocal) => {
-        if (!confirm("¿Estás seguro de eliminar este registro?")) return;
+        if (!confirm("¿Eliminar este registro?")) return;
         try {
           if (id && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
             await fetch(`${SUPABASE_URL}/rest/v1/jornadas?id=eq.${id}`, {
               method: 'DELETE',
-              headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-              }
+              headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
             });
           }
           setJornadas(prev => prev.filter((_, idx) => idx !== indexLocal));
@@ -251,19 +222,19 @@
                     onChange={(e) => setPinIngresado(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 text-center tracking-widest text-lg text-white rounded-xl py-2 focus:outline-none focus:border-amber-500"
                   />
-                  {errorPin && <p className="text-[10px] text-rose-400 text-center">PIN incorrecto. Intenta de nuevo.</p>}
+                  {errorPin && <p className="text-[10px] text-rose-400 text-center">PIN incorrecto.</p>}
                   
                   <div className="flex gap-2 pt-1">
                     <button 
                       type="button" 
                       onClick={() => { setUsuarioSeleccionando(null); setPinIngresado(''); setErrorPin(false); }}
-                      className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl text-slate-300"
+                      className="flex-1 py-2 bg-slate-800 text-xs font-bold rounded-xl text-slate-300"
                     >
                       Atrás
                     </button>
                     <button 
                       type="submit" 
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 rounded-xl"
+                      className="flex-1 py-2 bg-amber-500 text-xs font-bold text-slate-950 rounded-xl"
                     >
                       Entrar
                     </button>
@@ -282,10 +253,10 @@
                           setUsuarioSeleccionando(user);
                         }
                       }}
-                      className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left group"
+                      className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left"
                     >
                       <span>{user.nombre}</span>
-                      <span className="text-[10px] opacity-60 uppercase bg-slate-950 group-hover:bg-amber-600 group-hover:text-white px-2 py-0.5 rounded">
+                      <span className="text-[10px] opacity-60 uppercase bg-slate-950 px-2 py-0.5 rounded">
                         {user.pin ? '🔒 Protegido' : 'Libre'}
                       </span>
                     </button>
@@ -319,7 +290,7 @@
 
               <button 
                 onClick={() => setUsuarioActual(null)}
-                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-all"
+                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg"
               >
                 Cerrar Sesión
               </button>
@@ -361,12 +332,6 @@
             {mensajeExito && (
               <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold">
                 ✓ {mensajeExito}
-              </div>
-            )}
-
-            {errorDetallado && (
-              <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-xs break-words font-mono">
-                ⚠️ {errorDetallado}
               </div>
             )}
 
@@ -447,7 +412,7 @@
                   disabled={guardando}
                   className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow-lg flex justify-center items-center gap-2"
                 >
-                  {guardando ? 'Guardando en la nube...' : '💾 Registrar Jornada y Reiniciar'}
+                  {guardando ? 'Guardando...' : '💾 Registrar Jornada y Reiniciar'}
                 </button>
               </div>
             )}
@@ -475,11 +440,9 @@
                 )}
 
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h2 className="text-sm font-bold text-amber-400 uppercase">
-                    {usuarioActual.rol === 'chofer' ? 'Historial de Jornadas' : 'Historial General de Jornadas'}
-                  </h2>
+                  <h2 className="text-sm font-bold text-amber-400 uppercase">Historial de Jornadas</h2>
                   {jornadas.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">No hay registros en la base de datos.</p>
+                    <p className="text-xs text-slate-500 text-center py-4">No hay registros.</p>
                   ) : (
                     <div className="space-y-2">
                       {jornadas.map((j, idx) => (
@@ -491,7 +454,7 @@
                           </div>
                           <button 
                             onClick={() => eliminarJornada(j.id, idx)}
-                            className="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded-lg hover:bg-rose-500 hover:text-white transition-all"
+                            className="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded-lg"
                           >
                             🗑️
                           </button>
@@ -511,7 +474,7 @@
                     <label className="text-xs text-slate-400 block mb-1">Concepto:</label>
                     <input 
                       type="text"
-                      placeholder="Ej. Cambio de caucho, aceite..."
+                      placeholder="Ej. Cambio de caucho..."
                       value={nuevoGasto.concepto}
                       onChange={(e) => setNuevoGasto({ ...nuevoGasto, concepto: e.target.value })}
                       className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-sm focus:outline-none"
@@ -576,7 +539,7 @@
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                   <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Historial de Gastos</h2>
                   {gastos.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">No hay gastos registrados.</p>
+                    <p className="text-xs text-slate-500 text-center py-4">No hay gastos.</p>
                   ) : (
                     <div className="space-y-2">
                       {gastos.map((g, idx) => (
