@@ -17,8 +17,12 @@
     const { useState, useEffect } = React;
 
     // === CONFIGURACIÓN DE SUPABASE ===
+    // Asegúrate de pegar solo el dominio principal (Ej: https://xxxx.supabase.co)
     const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co"; 
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbWZubHdmbXNubnp5a2JlZHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MDE0OTYsImV4cCI6MjEwOTA3NzQ5Nn0.Y8bJ0ZWJv744L_9nsMzANtFoz1ihC3UQuMM1DH4QzfE";
+
+    // Limpieza de URL
+    const SUPABASE_URL = RAW_SUPABASE_URL.trim().replace(/\/+$/, '');
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
@@ -68,6 +72,9 @@
           if (resJornadas.ok) {
             const dataJ = await resJornadas.json();
             setJornadas(dataJ);
+          } else {
+            const errText = await resJornadas.text();
+            console.error("Error al cargar jornadas:", errText);
           }
 
           const resGastos = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*`, {
@@ -105,7 +112,6 @@
         setGuardando(true);
         setErrorDetallado('');
 
-        // Enviamos únicamente las columnas básicas garantizadas
         const datosJornada = {
           fecha,
           total_recaudado: totalRecaudado,
@@ -117,7 +123,9 @@
 
         try {
           if (SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/jornadas`, {
+            const endpoint = `${SUPABASE_URL}/rest/v1/jornadas`;
+            
+            const res = await fetch(endpoint, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -136,17 +144,16 @@
               setTimeout(() => setMensajeExito(''), 3500);
             } else {
               const errBody = await res.text();
-              console.error("Respuesta error Supabase:", errBody);
-              setErrorDetallado(`Error de Supabase: ${errBody}`);
+              setErrorDetallado(`Ruta intentada: ${endpoint} | Respuesta Supabase: ${errBody}`);
             }
           } else {
             setJornadas(prev => [datosJornada, ...prev]);
             setBilletes(DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {}));
-            setMensajeExito('Guardado localmente (sin conexión a Supabase).');
+            setMensajeExito('Guardado localmente (Claves no configuradas).');
           }
         } catch (e) {
           console.error(e);
-          setErrorDetallado(`Error de red: ${e.message}`);
+          setErrorDetallado(`Error de conexión/red: ${e.message}`);
         } finally {
           setGuardando(false);
         }
@@ -359,7 +366,7 @@
             )}
 
             {errorDetallado && (
-              <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-xs break-words">
+              <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-xs break-words font-mono">
                 ⚠️ {errorDetallado}
               </div>
             )}
