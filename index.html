@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control Triciclo Familiar</title>
-  <!-- PWA meta tags -->
   <meta name="theme-color" content="#0f172a">
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -20,436 +19,6 @@
     // === CONFIGURACIÓN DE SUPABASE ===
     const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co/rest/v1/"; 
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbWZubHdmbXNubnp5a2JlZHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MDE0OTYsImV4cCI6MjEwOTA3NzQ5Nn0.Y8bJ0ZWJv744L_9nsMzANtFoz1ihC3UQuMM1DH4QzfE";
-    const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
-
-    const USUARIOS = [
-      { id: 'chofer', nombre: 'Chofer', rol: 'chofer', pin: '5207' },
-      { id: 'prop1', nombre: 'Leydis', rol: 'propietario', pin: '8712' },
-      { id: 'prop2', nombre: 'Osmany', rol: 'propietario', pin: '7510' },
-      { id: 'admin', nombre: 'Administrador (General)', rol: 'admin', pin: '0000' },
-    ];
-
-    function App() {
-      const [usuarioActual, setUsuarioActual] = useState(null);
-      const [usuarioSeleccionando, setUsuarioSeleccionando] = useState(null);
-      const [pinIngresado, setPinIngresado] = useState('');
-      const [errorPin, setErrorPin] = useState(false);
-
-      const [vista, setVista] = useState('recaudacion');
-      const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-      
-      const [billetes, setBilletes] = useState(
-        DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {})
-      );
-      const [porcentajeChofer, setPorcentajeChofer] = useState(50);
-      const [guardando, setGuardando] = useState(false);
-      const [mensajeExito, setMensajeExito] = useState('');
-
-      const [gastos, setGastos] = useState([]);
-      const [nuevoGasto, setNuevoGasto] = useState({ concepto: '', monto: '', categoria: 'Mantenimiento' });
-      const [jornadas, setJornadas] = useState([]);
-
-      // Cargar datos desde Supabase al iniciar sesión
-      useEffect(() => {
-        if (usuarioActual && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-          cargarDatosSupabase();
-        }
-      }, [usuarioActual]);
-
-      const cargarDatosSupabase = async () => {
-        try {
-          const resJornadas = await fetch(`${SUPABASE_URL}/rest/v1/jornadas?select=*&order=creado_en.desc`, {
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
-          });
-          if (resJornadas.ok) {
-            const dataJ = await resJornadas.json();
-            setJornadas(dataJ);
-          }
-
-          const resGastos = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*&order=creado_en.desc`, {
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
-          });
-          if (resGastos.ok) {
-            const dataG = await resGastos.json();
-            setGastos(dataG);
-          }
-        } catch (e) {
-          console.error("Error cargando de Supabase:", e);
-        }
-      };
-
-      const totalRecaudado = Object.entries(billetes).reduce(
-        (sum, [den, cant]) => sum + (Number(den) * (Number(cant) || 0)), 0
-      );
-      const pagoChofer = (totalRecaudado * porcentajeChofer) / 100;
-      const pagoPropietarios = totalRecaudado - pagoChofer;
-
-      const handleCantidadChange = (den, cant) => {
-        const valor = Math.max(0, parseInt(cant) || 0);
-        setBilletes(prev => ({ ...prev, [den]: valor }));
-      };
-
-      const guardarJornada = async () => {
-        if (totalRecaudado === 0) {
-          alert("Por favor ingresa al menos un billete.");
-          return;
-        }
-
-        setGuardando(true);
-        const datosJornada = {
-          fecha,
-          total_recaudado: totalRecaudado,
-          porcentaje_chofer: porcentajeChofer,
-          pago_chofer: pagoChofer,
-          pago_propietarios: pagoPropietarios,
-          registrado_por: usuarioActual.nombre,
-          desglose_billetes: JSON.stringify(billetes),
-          creado_en: new Date().toISOString()
-        };
-
-        try {
-          if (SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/jornadas`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Prefer': 'return=representation'
-              },
-              body: JSON.stringify(datosJornada)
-            });
-            if (res.ok) {
-              const dataGuardada = await res.json();
-              setJornadas(prev => [dataGuardada[0] || datosJornada, ...prev]);
-            }
-          } else {
-            setJornadas(prev => [datosJornada, ...prev]);
-          }
-
-          // LIMPIAR FORMULARIO TRAS GUARDAR CON ÉXITO
-          setBilletes(DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {}));
-          setMensajeExito('¡Jornada registrada y pantalla reiniciada!');
-          setTimeout(() => setMensajeExito(''), 3500);
-        } catch (e) {
-          console.error(e);
-          alert("Error al guardar en la base de datos.");
-        } finally {
-          setGuardando(false);
-        }
-      };
-
-      const agregarGasto = async (e) => {
-        e.preventDefault();
-        if (!nuevoGasto.concepto || !nuevoGasto.monto) return;
-
-        const gastoObj = {
-          fecha,
-          concepto: nuevoGasto.concepto,
-          monto: Number(nuevoGasto.monto),
-          categoria: nuevoGasto.categoria,
-          registrado_por: usuarioActual.nombre,
-          creado_en: new Date().toISOString()
-        };
-
-        try {
-          if (SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Prefer': 'return=representation'
-              },
-              body: JSON.stringify(gastoObj)
-            });
-            if (res.ok) {
-              const dataG = await res.json();
-              setGastos(prev => [dataG[0] || gastoObj, ...prev]);
-            }
-          } else {
-            setGastos(prev => [gastoObj, ...prev]);
-          }
-          setNuevoGasto({ concepto: '', monto: '', categoria: 'Mantenimiento' });
-        } catch (e) {
-          console.error(e);
-        }
-      };
-
-      const eliminarJornada = async (id, indexLocal) => {
-        if (!confirm("¿Estás seguro de eliminar este registro?")) return;
-        try {
-          if (id && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            await fetch(`${SUPABASE_URL}/rest/v1/jornadas?id=eq.${id}`, {
-              method: 'DELETE',
-              headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-              }
-            });
-          }
-          setJornadas(prev => prev.filter((_, idx) => idx !== indexLocal));
-        } catch (e) {
-          console.error(e);
-          alert("No se pudo eliminar el registro.");
-        }
-      };
-
-      const verificarPin = (e) => {
-        e.preventDefault();
-        if (pinIngresado === usuarioSeleccionando.pin) {
-          setUsuarioActual(usuarioSeleccionando);
-          setUsuarioSeleccionando(null);
-          setPinIngresado('');
-          setErrorPin(false);
-          setVista('recaudacion');
-        } else {
-          setErrorPin(true);
-          setPinIngresado('');
-        }
-      };
-
-      // PANTALLA DE ACCESO
-      if (!usuarioActual) {
-        return (
-          <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
-              <div className="text-center space-y-1">
-                <span className="text-3xl">🛺</span>
-                <h1 className="text-lg font-bold text-amber-400">Triciclo Familiar</h1>
-                <p className="text-xs text-slate-400">Selecciona tu perfil de acceso</p>
-              </div>
-
-              {usuarioSeleccionando ? (
-                <form onSubmit={verificarPin} className="space-y-3 pt-2">
-                  <div className="text-xs text-amber-400 font-semibold text-center">
-                    Ingresa el PIN para {usuarioSeleccionando.nombre}
-                  </div>
-                  <input 
-                    type="password"
-                    maxLength="4"
-                    placeholder="••••"
-                    autoFocus
-                    value={pinIngresado}
-                    onChange={(e) => setPinIngresado(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-center tracking-widest text-lg text-white rounded-xl py-2 focus:outline-none focus:border-amber-500"
-                  />
-                  {errorPin && <p className="text-[10px] text-rose-400 text-center">PIN incorrecto. Intenta de nuevo.</p>}
-                  
-                  <div className="flex gap-2 pt-1">
-                    <button 
-                      type="button" 
-                      onClick={() => { setUsuarioSeleccionando(null); setPinIngresado(''); setErrorPin(false); }}
-                      className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl text-slate-300"
-                    >
-                      Atrás
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 rounded-xl"
-                    >
-                      Entrar
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-2 pt-2">
-                  {USUARIOS.map(user => (
-                    <button
-                      key={user.id}
-                      onClick={() => {
-                        if (user.pin === '') {
-                          setUsuarioActual(user);
-                          setVista('recaudacion');
-                        } else {
-                          setUsuarioSeleccionando(user);
-                        }
-                      }}
-                      className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left group"
-                    >
-                      <span>{user.nombre}</span>
-                      <span className="text-[10px] opacity-60 uppercase bg-slate-950 group-hover:bg-amber-600 group-hover:text-white px-2 py-0.5 rounded">
-                        {user.pin ? '🔒 Protegido' : 'Libre'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      // Cálculos para el resumen del chofer
-      const hoyStr = new Date().toISOString().split('T')[0];
-      const mesActualStr = hoyStr.slice(0, 7); // YYYY-MM
-      const anioActualStr = hoyStr.slice(0, 4); // YYYY
-
-      const jornadasChofer = jornadas.filter(j => usuarioActual.rol === 'admin' || j.registrado_por === usuarioActual.nombre);
-      const totalChoferHoy = jornadasChofer.filter(j => j.fecha === hoyStr).reduce((a, b) => a + Number(b.pago_chofer), 0);
-      const totalChoferMes = jornadasChofer.filter(j => j.fecha && j.fecha.startsWith(mesActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
-      const totalChoferAnio = jornadasChofer.filter(j => j.fecha && j.fecha.startsWith(anioActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
-
-      return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 font-sans">
-          {/* BARRA SUPERIOR */}
-          <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
-            <div className="max-w-md mx-auto flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🛺</span>
-                <div>
-                  <h1 className="font-bold text-sm text-amber-400 leading-none">Triciclo Control</h1>
-                  <span className="text-[10px] text-slate-400">{usuarioActual.nombre}</span>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setUsuarioActual(null)}
-                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-all"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          </header>
-
-          {/* NAVEGACIÓN DINÁMICA */}
-          <nav className="max-w-md mx-auto p-4 grid grid-cols-3 gap-2">
-            <button 
-              onClick={() => setVista('recaudacion')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                vista === 'recaudacion' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              💵 {usuarioActual.rol === 'chofer' ? 'Registrar' : 'Recaudación'}
-            </button>
-
-            <button 
-              onClick={() => setVista('mis_registros')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                vista === 'mis_registros' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
-              }`}
-            >
-              📋 {usuarioActual.rol === 'chofer' ? 'Mis Estadísticas' : 'Historial'}
-            </button>
-
-            {usuarioActual.rol !== 'chofer' && (
-              <button 
-                onClick={() => setVista('resumen')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                  vista === 'resumen' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
-                }`}
-              >
-                📊 Resumen & Gastos
-              </button>
-            )}
-          </nav>
-
-          <main className="max-w-md mx-auto px-4">
-            {mensajeExito && (
-              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold">
-                ✓ {mensajeExito}
-              </div>
-            )}
-
-            {/* VISTA RECAUDACIÓN */}
-            {vista === 'recaudacion' && (
-              <div className="space-y-4">
-                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Fecha de Jornada:</span>
-                  <input 
-                    type="date" 
-                    value={fecha} 
-                    onChange={(e) => setFecha(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-2 py-1 focus:outline-none"
-                  />
-                </div>
-
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Conteo de Billetes</h2>
-                  <div className="grid grid-cols-1 gap-2">
-                    {DENOMINACIONES.map(den => (
-                      <div key={den} className="flex items-center justify-between bg-slate-950 p-2 rounded-lg border border-slate-800">
-                        <span className="font-bold text-slate-300 text-sm w-16">${den}</span>
-                        <input 
-                          type="number" 
-                          min="0"
-                          placeholder="0"
-                          value={billetes[den] || ''}
-                          onChange={(e) => handleCantidadChange(den, e.target.value)}
-                          className="w-24 bg-slate-800 border border-slate-700 text-center font-bold text-amber-400 rounded-md py-1 text-sm focus:outline-none"
-                        />
-                        <span className="text-xs text-slate-500 w-20 text-right font-mono">
-                          ${(den * (billetes[den] || 0)).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h2 className="text-sm font-bold text-amber-400 uppercase">División de Recaudación</h2>
-                  
-                  <div className="flex gap-2">
-                    {[30, 40, 50, 60].map(porc => (
-                      <button
-                        key={porc}
-                        onClick={() => setPorcentajeChofer(porc)}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                          porcentajeChofer === porc 
-                            ? 'bg-amber-500 border-amber-400 text-slate-950' 
-                            : 'bg-slate-800 border-slate-700 text-slate-400'
-                        }`}
-                      >
-                        {porc}% Chofer
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                      <span className="text-xs text-slate-400 block mb-1">Pago Chofer:</span>
-                      <span className="text-lg font-black text-emerald-400">${pagoChofer.toLocaleString()}</span>
-                    </div>
-                    {usuarioActual.rol !== 'chofer' && (
-                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                        <span className="text-xs text-slate-400 block mb-1">Propietarios:</span>
-                        <span className="text-lg font-black text-amber-400">${pagoPropietarios.toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-slate-950 p-4 rounded-xl border border-amber-500/30 flex justify-between items-center">
-                    <span className="font-bold text-slate-300">Total Recaudado:</span>
-                    <span className="text-2xl font-black text-amber-400 font-mono">${totalRecaudado.toLocaleString()}</span>
-                  </div>
-                </div><!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control Triciclo Familiar</title>
-  <meta name="theme-color" content="#0f172a">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-  <div id="root"></div>
-
-  <script type="text/babel">
-    const { useState, useEffect } = React;
-
-    // === CONFIGURACIÓN DE SUPABASE ===
-    const SUPABASE_URL = "TU_SUPABASE_URL_AQUI"; 
-    const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY_AQUI";
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
@@ -480,7 +49,6 @@
       const [nuevoGasto, setNuevoGasto] = useState({ concepto: '', monto: '', categoria: 'Mantenimiento' });
       const [jornadas, setJornadas] = useState([]);
 
-      // Cargar datos desde Supabase al iniciar sesión
       useEffect(() => {
         if (usuarioActual && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
           cargarDatosSupabase();
@@ -498,8 +66,6 @@
           if (resJornadas.ok) {
             const dataJ = await resJornadas.json();
             setJornadas(dataJ);
-          } else {
-            console.error("Error al leer jornadas de Supabase");
           }
 
           const resGastos = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*&order=creado_en.desc`, {
@@ -561,10 +127,6 @@
             if (res.ok) {
               const dataGuardada = await res.json();
               setJornadas(prev => [dataGuardada[0] || datosJornada, ...prev]);
-            } else {
-              const errText = await res.text();
-              console.error("Supabase rechazó el guardado:", errText);
-              alert("Error al guardar en Supabase. Revisa las políticas de la tabla.");
             }
           } else {
             setJornadas(prev => [datosJornada, ...prev]);
@@ -575,7 +137,7 @@
           setTimeout(() => setMensajeExito(''), 3500);
         } catch (e) {
           console.error(e);
-          alert("Error de red al guardar.");
+          alert("Error al guardar.");
         } finally {
           setGuardando(false);
         }
@@ -631,7 +193,7 @@
               }
             });
           }
-          setJornadas(prev => filter((_, idx) => idx !== indexLocal));
+          setJornadas(prev => prev.filter((_, idx) => idx !== indexLocal));
         } catch (e) {
           console.error(e);
         }
@@ -721,13 +283,10 @@
         );
       }
 
-      // Cálculos de estadísticas (Los propietarios y admin ven todo, el chofer ve sus registros o los generales según prefieras)
       const hoyStr = new Date().toISOString().split('T')[0];
       const mesActualStr = hoyStr.slice(0, 7);
       const anioActualStr = hoyStr.slice(0, 4);
 
-      // Si es chofer, mostramos sus jornadas o todas las de la app para mayor transparencia
-      const jornadasMostradas = jornadas; 
       const totalChoferHoy = jornadas.filter(j => j.fecha === hoyStr).reduce((a, b) => a + Number(b.pago_chofer), 0);
       const totalChoferMes = jornadas.filter(j => j.fecha && j.fecha.startsWith(mesActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
       const totalChoferAnio = jornadas.filter(j => j.fecha && j.fecha.startsWith(anioActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
@@ -899,11 +458,11 @@
                   <h2 className="text-sm font-bold text-amber-400 uppercase">
                     {usuarioActual.rol === 'chofer' ? 'Historial de Jornadas' : 'Historial General de Jornadas'}
                   </h2>
-                  {jornadasMostradas.length === 0 ? (
+                  {jornadas.length === 0 ? (
                     <p className="text-xs text-slate-500 text-center py-4">No hay registros en la base de datos.</p>
                   ) : (
                     <div className="space-y-2">
-                      {jornadasMostradas.map((j, idx) => (
+                      {jornadas.map((j, idx) => (
                         <div key={j.id || idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
                           <div>
                             <p className="font-bold text-xs text-amber-400">{j.fecha}</p>
