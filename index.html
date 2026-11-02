@@ -18,8 +18,8 @@
     const { useState, useEffect } = React;
 
     // === CONFIGURACIÓN DE SUPABASE ===
-    const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co/rest/v1/"; 
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbWZubHdmbXNubnp5a2JlZHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MDE0OTYsImV4cCI6MjEwOTA3NzQ5Nn0.Y8bJ0ZWJv744L_9nsMzANtFoz1ihC3UQuMM1DH4QzfE";
+    const SUPABASE_URL = "TU_SUPABASE_URL_AQUI"; 
+    const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY_AQUI";
 
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
@@ -293,4 +293,305 @@
       const mesActualStr = hoyStr.slice(0, 7); // YYYY-MM
       const anioActualStr = hoyStr.slice(0, 4); // YYYY
 
-      const jornadasChofer = jornadas.filter(j => usuario
+      const jornadasChofer = jornadas.filter(j => usuarioActual.rol === 'admin' || j.registrado_por === usuarioActual.nombre);
+      const totalChoferHoy = jornadasChofer.filter(j => j.fecha === hoyStr).reduce((a, b) => a + Number(b.pago_chofer), 0);
+      const totalChoferMes = jornadasChofer.filter(j => j.fecha && j.fecha.startsWith(mesActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
+      const totalChoferAnio = jornadasChofer.filter(j => j.fecha && j.fecha.startsWith(anioActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 font-sans">
+          {/* BARRA SUPERIOR */}
+          <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
+            <div className="max-w-md mx-auto flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🛺</span>
+                <div>
+                  <h1 className="font-bold text-sm text-amber-400 leading-none">Triciclo Control</h1>
+                  <span className="text-[10px] text-slate-400">{usuarioActual.nombre}</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setUsuarioActual(null)}
+                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-all"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </header>
+
+          {/* NAVEGACIÓN DINÁMICA */}
+          <nav className="max-w-md mx-auto p-4 grid grid-cols-3 gap-2">
+            <button 
+              onClick={() => setVista('recaudacion')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                vista === 'recaudacion' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
+              }`}
+            >
+              💵 {usuarioActual.rol === 'chofer' ? 'Registrar' : 'Recaudación'}
+            </button>
+
+            <button 
+              onClick={() => setVista('mis_registros')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                vista === 'mis_registros' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
+              }`}
+            >
+              📋 {usuarioActual.rol === 'chofer' ? 'Mis Estadísticas' : 'Historial'}
+            </button>
+
+            {usuarioActual.rol !== 'chofer' && (
+              <button 
+                onClick={() => setVista('resumen')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  vista === 'resumen' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
+                }`}
+              >
+                📊 Resumen & Gastos
+              </button>
+            )}
+          </nav>
+
+          <main className="max-w-md mx-auto px-4">
+            {mensajeExito && (
+              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-semibold">
+                ✓ {mensajeExito}
+              </div>
+            )}
+
+            {/* VISTA RECAUDACIÓN */}
+            {vista === 'recaudacion' && (
+              <div className="space-y-4">
+                <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                  <span className="text-xs text-slate-400">Fecha de Jornada:</span>
+                  <input 
+                    type="date" 
+                    value={fecha} 
+                    onChange={(e) => setFecha(e.target.value)}
+                    className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-2 py-1 focus:outline-none"
+                  />
+                </div>
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Conteo de Billetes</h2>
+                  <div className="grid grid-cols-1 gap-2">
+                    {DENOMINACIONES.map(den => (
+                      <div key={den} className="flex items-center justify-between bg-slate-950 p-2 rounded-lg border border-slate-800">
+                        <span className="font-bold text-slate-300 text-sm w-16">${den}</span>
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder="0"
+                          value={billetes[den] || ''}
+                          onChange={(e) => handleCantidadChange(den, e.target.value)}
+                          className="w-24 bg-slate-800 border border-slate-700 text-center font-bold text-amber-400 rounded-md py-1 text-sm focus:outline-none"
+                        />
+                        <span className="text-xs text-slate-500 w-20 text-right font-mono">
+                          ${(den * (billetes[den] || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <h2 className="text-sm font-bold text-amber-400 uppercase">División de Recaudación</h2>
+                  
+                  <div className="flex gap-2">
+                    {[30, 40, 50, 60].map(porc => (
+                      <button
+                        key={porc}
+                        onClick={() => setPorcentajeChofer(porc)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                          porcentajeChofer === porc 
+                            ? 'bg-amber-500 border-amber-400 text-slate-950' 
+                            : 'bg-slate-800 border-slate-700 text-slate-400'
+                        }`}
+                      >
+                        {porc}% Chofer
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                      <span className="text-xs text-slate-400 block mb-1">Pago Chofer:</span>
+                      <span className="text-lg font-black text-emerald-400">${pagoChofer.toLocaleString()}</span>
+                    </div>
+                    {usuarioActual.rol !== 'chofer' && (
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-xs text-slate-400 block mb-1">Propietarios:</span>
+                        <span className="text-lg font-black text-amber-400">${pagoPropietarios.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-slate-950 p-4 rounded-xl border border-amber-500/30 flex justify-between items-center">
+                    <span className="font-bold text-slate-300">Total Recaudado:</span>
+                    <span className="text-2xl font-black text-amber-400 font-mono">${totalRecaudado.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={guardarJornada}
+                  disabled={guardando}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow-lg flex justify-center items-center gap-2"
+                >
+                  {guardando ? 'Guardando...' : '💾 Registrar Jornada y Reiniciar'}
+                </button>
+              </div>
+            )}
+
+            {/* VISTA HISTORIAL / ESTADÍSTICAS DEL CHOFER */}
+            {vista === 'mis_registros' && (
+              <div className="space-y-4">
+                {usuarioActual.rol === 'chofer' && (
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h2 className="text-sm font-bold text-amber-400 uppercase">Mis Ganancias (Chofer)</h2>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Hoy</span>
+                        <span className="text-sm font-black text-emerald-400">${totalChoferHoy.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Este Mes</span>
+                        <span className="text-sm font-black text-emerald-400">${totalChoferMes.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Este Año</span>
+                        <span className="text-sm font-black text-emerald-400">${totalChoferAnio.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <h2 className="text-sm font-bold text-amber-400 uppercase">
+                    {usuarioActual.rol === 'chofer' ? 'Mis Jornadas Registradas' : 'Historial General de Jornadas'}
+                  </h2>
+                  {jornadasChofer.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">No hay registros guardados.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {jornadasChofer.map((j, idx) => (
+                        <div key={j.id || idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-xs text-amber-400">{j.fecha}</p>
+                            <p className="text-xs text-slate-300">Recaudado: ${Number(j.total_recaudado).toLocaleString()} <span className="text-slate-500">({j.registrado_por})</span></p>
+                            <p className="text-[10px] text-emerald-400 font-semibold">Comisión Chofer: ${Number(j.pago_chofer).toLocaleString()}</p>
+                          </div>
+                          <button 
+                            onClick={() => eliminarJornada(j.id, idx)}
+                            className="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded-lg hover:bg-rose-500 hover:text-white transition-all"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* VISTA RESUMEN Y GASTOS (Solo Propietarios/Admin) */}
+            {vista === 'resumen' && usuarioActual.rol !== 'chofer' && (
+              <div className="space-y-4">
+                <form onSubmit={agregarGasto} className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <h2 className="text-sm font-bold text-amber-400 uppercase">Registrar Gasto Operativo</h2>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Concepto:</label>
+                    <input 
+                      type="text"
+                      placeholder="Ej. Cambio de caucho, aceite..."
+                      value={nuevoGasto.concepto}
+                      onChange={(e) => setNuevoGasto({ ...nuevoGasto, concepto: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-sm focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-slate-400 block mb-1">Monto ($):</label>
+                      <input 
+                        type="number"
+                        placeholder="0.00"
+                        value={nuevoGasto.monto}
+                        onChange={(e) => setNuevoGasto({ ...nuevoGasto, monto: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-sm focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 block mb-1">Categoría:</label>
+                      <select
+                        value={nuevoGasto.categoria}
+                        onChange={(e) => setNuevoGasto({ ...nuevoGasto, categoria: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-sm focus:outline-none"
+                      >
+                        <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Reparación">Reparación</option>
+                        <option value="Combustible">Combustible</option>
+                        <option value="Otros">Otros</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="w-full py-2 bg-amber-500 text-slate-950 font-bold rounded-lg text-sm">
+                    + Agregar Gasto
+                  </button>
+                </form>
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Resumen Financiero Global</h2>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between p-2 bg-slate-950 rounded">
+                      <span className="text-slate-400">Total Recaudaciones:</span>
+                      <span className="font-bold text-white">${jornadas.reduce((a, b) => a + Number(b.total_recaudado), 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-slate-950 rounded">
+                      <span className="text-slate-400">Total Pagado a Chofer:</span>
+                      <span className="font-bold text-emerald-400">${jornadas.reduce((a, b) => a + Number(b.pago_chofer), 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-slate-950 rounded">
+                      <span className="text-slate-400">Total Gastos Operativos:</span>
+                      <span className="font-bold text-rose-400">${gastos.reduce((a, b) => a + Number(b.monto), 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm mt-3">
+                      <span className="font-bold text-amber-400">Ganancia Neta Propietarios:</span>
+                      <span className="font-black text-amber-400">
+                        ${(jornadas.reduce((a, b) => a + Number(b.pago_propietarios), 0) - gastos.reduce((a, b) => a + Number(b.monto), 0)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Historial de Gastos</h2>
+                  {gastos.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">No hay gastos registrados.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {gastos.map((g, idx) => (
+                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-sm text-slate-200">{g.concepto}</p>
+                            <p className="text-xs text-slate-500">{g.fecha} • {g.categoria} (Por: {g.registrado_por})</p>
+                          </div>
+                          <span className="font-black text-rose-400 text-sm">-${Number(g.monto).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
