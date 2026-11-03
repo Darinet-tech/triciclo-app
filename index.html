@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <div id="root"></div>
@@ -16,16 +16,17 @@
     const { useState, useEffect } = React;
 
     // === CONFIGURACIÓN DE SUPABASE ===
-    const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co/rest/v1/"; 
+    // Recuerda poner tu URL limpia (Ej: https://xxxx.supabase.co)
+    const SUPABASE_URL = "https://mqmfnlwfmsnnzykbedpx.supabase.co"; 
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xbWZubHdmbXNubnp5a2JlZHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MDE0OTYsImV4cCI6MjEwOTA3NzQ5Nn0.Y8bJ0ZWJv744L_9nsMzANtFoz1ihC3UQuMM1DH4QzfE";
+
     const DENOMINACIONES = [2000, 1000, 500, 200, 100, 50, 20, 10, 5];
 
-    // Usuarios con sus PINs configurados (puedes cambiarlos aquí mismo)
     const USUARIOS = [
       { id: 'chofer', nombre: 'Chofer', rol: 'chofer', pin: '5207' },
-      { id: 'prop1', nombre: 'Propietario 1 (Leydis)', rol: 'propietario', pin: '8712' },
-      { id: 'prop2', nombre: 'Propietario 2 (Osmany)', rol: 'propietario', pin: '7510' },
-      { id: 'admin', nombre: 'Administrador (Admin)', rol: 'admin', pin: '0000' },
+      { id: 'prop1', nombre: 'Leydis', rol: 'propietario', pin: '8712' },
+      { id: 'prop2', nombre: 'Osmany', rol: 'propietario', pin: '7510' },
+      { id: 'admin', nombre: 'Administrador', rol: 'admin', pin: '0000' },
     ];
 
     function App() {
@@ -37,9 +38,9 @@
       const [vista, setVista] = useState('recaudacion');
       const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
       
-      const [billetes, setBilletes] = useState(
-        DENOMINACIONES.reduce((acc, den) => ({ ...acc, [den]: 0 }), {})
-      );
+      const [billetes, setBilletes] = useState({
+        2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0
+      });
       const [porcentajeChofer, setPorcentajeChofer] = useState(50);
       const [guardando, setGuardando] = useState(false);
       const [mensajeExito, setMensajeExito] = useState('');
@@ -47,6 +48,28 @@
       const [gastos, setGastos] = useState([]);
       const [nuevoGasto, setNuevoGasto] = useState({ concepto: '', monto: '', categoria: 'Mantenimiento' });
       const [jornadas, setJornadas] = useState([]);
+
+      useEffect(() => {
+        if (usuarioActual && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
+          cargarDatos();
+        }
+      }, [usuarioActual]);
+
+      const cargarDatos = async () => {
+        try {
+          const resJ = await fetch(`${SUPABASE_URL}/rest/v1/jornadas?select=*`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+          });
+          if (resJ.ok) setJornadas(await resJ.json());
+
+          const resG = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+          });
+          if (resG.ok) setGastos(await resG.json());
+        } catch (e) {
+          console.error(e);
+        }
+      };
 
       const totalRecaudado = Object.entries(billetes).reduce(
         (sum, [den, cant]) => sum + (Number(den) * (Number(cant) || 0)), 0
@@ -61,40 +84,49 @@
 
       const guardarJornada = async () => {
         if (totalRecaudado === 0) {
-          alert("Por favor ingresa al menos un billete.");
+          alert("Ingresa al menos un billete.");
           return;
         }
 
         setGuardando(true);
-        const datosJornada = {
+        const datos = {
           fecha,
           total_recaudado: totalRecaudado,
           porcentaje_chofer: porcentajeChofer,
           pago_chofer: pagoChofer,
           pago_propietarios: pagoPropietarios,
-          registrado_por: usuarioActual.nombre,
-          desglose_billetes: JSON.stringify(billetes),
-          creado_en: new Date().toISOString()
+          desglose_billetes: JSON.stringify(billetes)
         };
 
         try {
           if (SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            await fetch(`${SUPABASE_URL}/rest/v1/jornadas`, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/jornadas`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Prefer': 'return=representation'
               },
-              body: JSON.stringify(datosJornada)
+              body: JSON.stringify(datos)
             });
+
+            if (res.ok) {
+              const data = await res.json();
+              setJornadas(prev => [data[0] || datos, ...prev]);
+            } else {
+              const err = await res.text();
+              alert("Error Supabase: " + err);
+            }
+          } else {
+            setJornadas(prev => [datos, ...prev]);
           }
-          setJornadas(prev => [datosJornada, ...prev]);
+
+          setBilletes({ 2000: 0, 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0 });
           setMensajeExito('¡Jornada registrada con éxito!');
           setTimeout(() => setMensajeExito(''), 3000);
         } catch (e) {
-          console.error(e);
-          alert("Guardado localmente.");
+          alert("Error de conexión: " + e.message);
         } finally {
           setGuardando(false);
         }
@@ -109,24 +141,44 @@
           concepto: nuevoGasto.concepto,
           monto: Number(nuevoGasto.monto),
           categoria: nuevoGasto.categoria,
-          registrado_por: usuarioActual.nombre,
-          creado_en: new Date().toISOString()
+          registrado_por: usuarioActual.nombre
         };
 
         try {
           if (SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
-            await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Prefer': 'return=representation'
               },
               body: JSON.stringify(gastoObj)
             });
+            if (res.ok) {
+              const data = await res.json();
+              setGastos(prev => [data[0] || gastoObj, ...prev]);
+            }
+          } else {
+            setGastos(prev => [gastoObj, ...prev]);
           }
-          setGastos(prev => [gastoObj, ...prev]);
           setNuevoGasto({ concepto: '', monto: '', categoria: 'Mantenimiento' });
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const eliminarJornada = async (id, indexLocal) => {
+        if (!confirm("¿Eliminar este registro?")) return;
+        try {
+          if (id && SUPABASE_URL !== "TU_SUPABASE_URL_AQUI") {
+            await fetch(`${SUPABASE_URL}/rest/v1/jornadas?id=eq.${id}`, {
+              method: 'DELETE',
+              headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+          }
+          setJornadas(prev => prev.filter((_, idx) => idx !== indexLocal));
         } catch (e) {
           console.error(e);
         }
@@ -139,14 +191,13 @@
           setUsuarioSeleccionando(null);
           setPinIngresado('');
           setErrorPin(false);
-          if (usuarioSeleccionando.rol === 'chofer') setVista('recaudacion');
+          setVista('recaudacion');
         } else {
           setErrorPin(true);
           setPinIngresado('');
         }
       };
 
-      // PANTALLA DE ACCESO
       if (!usuarioActual) {
         return (
           <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
@@ -171,19 +222,19 @@
                     onChange={(e) => setPinIngresado(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 text-center tracking-widest text-lg text-white rounded-xl py-2 focus:outline-none focus:border-amber-500"
                   />
-                  {errorPin && <p className="text-[10px] text-rose-400 text-center">PIN incorrecto. Intenta de nuevo.</p>}
+                  {errorPin && <p className="text-[10px] text-rose-400 text-center">PIN incorrecto.</p>}
                   
                   <div className="flex gap-2 pt-1">
                     <button 
                       type="button" 
                       onClick={() => { setUsuarioSeleccionando(null); setPinIngresado(''); setErrorPin(false); }}
-                      className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl text-slate-300"
+                      className="flex-1 py-2 bg-slate-800 text-xs font-bold rounded-xl text-slate-300"
                     >
                       Atrás
                     </button>
                     <button 
                       type="submit" 
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 rounded-xl"
+                      className="flex-1 py-2 bg-amber-500 text-xs font-bold text-slate-950 rounded-xl"
                     >
                       Entrar
                     </button>
@@ -202,10 +253,10 @@
                           setUsuarioSeleccionando(user);
                         }
                       }}
-                      className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left group"
+                      className="w-full py-3 px-4 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex justify-between items-center text-left"
                     >
                       <span>{user.nombre}</span>
-                      <span className="text-[10px] opacity-60 uppercase bg-slate-950 group-hover:bg-amber-600 group-hover:text-white px-2 py-0.5 rounded">
+                      <span className="text-[10px] opacity-60 uppercase bg-slate-950 px-2 py-0.5 rounded">
                         {user.pin ? '🔒 Protegido' : 'Libre'}
                       </span>
                     </button>
@@ -217,9 +268,16 @@
         );
       }
 
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const mesActualStr = hoyStr.slice(0, 7);
+      const anioActualStr = hoyStr.slice(0, 4);
+
+      const totalChoferHoy = jornadas.filter(j => j.fecha === hoyStr).reduce((a, b) => a + Number(b.pago_chofer), 0);
+      const totalChoferMes = jornadas.filter(j => j.fecha && j.fecha.startsWith(mesActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
+      const totalChoferAnio = jornadas.filter(j => j.fecha && j.fecha.startsWith(anioActualStr)).reduce((a, b) => a + Number(b.pago_chofer), 0);
+
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 font-sans">
-          {/* BARRA SUPERIOR */}
           <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
             <div className="max-w-md mx-auto flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -232,14 +290,13 @@
 
               <button 
                 onClick={() => setUsuarioActual(null)}
-                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-all"
+                className="bg-slate-800 border border-slate-700 text-xs text-rose-400 font-semibold px-2.5 py-1.5 rounded-lg"
               >
                 Cerrar Sesión
               </button>
             </div>
           </header>
 
-          {/* NAVEGACIÓN */}
           <nav className="max-w-md mx-auto p-4 grid grid-cols-3 gap-2">
             <button 
               onClick={() => setVista('recaudacion')}
@@ -247,19 +304,17 @@
                 vista === 'recaudacion' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
               }`}
             >
-              💵 {usuarioActual.rol === 'chofer' ? 'Mi Recaudación' : 'Recaudación'}
+              💵 {usuarioActual.rol === 'chofer' ? 'Registrar' : 'Recaudación'}
             </button>
 
-            {usuarioActual.rol !== 'chofer' && (
-              <button 
-                onClick={() => setVista('gastos')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                  vista === 'gastos' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
-                }`}
-              >
-                🛠️ Gastos
-              </button>
-            )}
+            <button 
+              onClick={() => setVista('mis_registros')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                vista === 'mis_registros' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
+              }`}
+            >
+              📋 {usuarioActual.rol === 'chofer' ? 'Mis Estadísticas' : 'Historial'}
+            </button>
 
             {usuarioActual.rol !== 'chofer' && (
               <button 
@@ -268,7 +323,7 @@
                   vista === 'resumen' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400'
                 }`}
               >
-                📊 Resumen
+                📊 Resumen & Gastos
               </button>
             )}
           </nav>
@@ -357,20 +412,69 @@
                   disabled={guardando}
                   className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow-lg flex justify-center items-center gap-2"
                 >
-                  {guardando ? 'Guardando...' : '💾 Registrar Jornada'}
+                  {guardando ? 'Guardando...' : '💾 Registrar Jornada y Reiniciar'}
                 </button>
               </div>
             )}
 
-            {vista === 'gastos' && usuarioActual.rol !== 'chofer' && (
+            {vista === 'mis_registros' && (
+              <div className="space-y-4">
+                {usuarioActual.rol === 'chofer' && (
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h2 className="text-sm font-bold text-amber-400 uppercase">Mis Ganancias Acumuladas</h2>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Hoy</span>
+                        <span className="text-sm font-black text-emerald-400">${totalChoferHoy.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Este Mes</span>
+                        <span className="text-sm font-black text-emerald-400">${totalChoferMes.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Este Año</span>
+                        <span className="text-sm font-black text-emerald-400">${totalChoferAnio.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <h2 className="text-sm font-bold text-amber-400 uppercase">Historial de Jornadas</h2>
+                  {jornadas.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">No hay registros.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {jornadas.map((j, idx) => (
+                        <div key={j.id || idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-xs text-amber-400">{j.fecha}</p>
+                            <p className="text-xs text-slate-300">Recaudado: ${Number(j.total_recaudado).toLocaleString()}</p>
+                            <p className="text-[10px] text-emerald-400 font-semibold">Chofer: ${Number(j.pago_chofer).toLocaleString()} | Propietarios: ${Number(j.pago_propietarios).toLocaleString()}</p>
+                          </div>
+                          <button 
+                            onClick={() => eliminarJornada(j.id, idx)}
+                            className="text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded-lg"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {vista === 'resumen' && usuarioActual.rol !== 'chofer' && (
               <div className="space-y-4">
                 <form onSubmit={agregarGasto} className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h2 className="text-sm font-bold text-amber-400 uppercase">Registrar Gasto</h2>
+                  <h2 className="text-sm font-bold text-amber-400 uppercase">Registrar Gasto Operativo</h2>
                   <div>
                     <label className="text-xs text-slate-400 block mb-1">Concepto:</label>
                     <input 
                       type="text"
-                      placeholder="Ej. Cambio de caucho, aceite..."
+                      placeholder="Ej. Cambio de caucho..."
                       value={nuevoGasto.concepto}
                       onChange={(e) => setNuevoGasto({ ...nuevoGasto, concepto: e.target.value })}
                       className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-sm focus:outline-none"
@@ -409,30 +513,7 @@
                 </form>
 
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Historial de Gastos</h2>
-                  {gastos.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">No hay gastos registrados.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {gastos.map((g, idx) => (
-                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
-                          <div>
-                            <p className="font-bold text-sm text-slate-200">{g.concepto}</p>
-                            <p className="text-xs text-slate-500">{g.fecha} • {g.categoria} (Por: {g.registrado_por})</p>
-                          </div>
-                          <span className="font-black text-rose-400 text-sm">-${Number(g.monto).toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {vista === 'resumen' && usuarioActual.rol !== 'chofer' && (
-              <div className="space-y-4">
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Resumen General</h2>
+                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Resumen Financiero Global</h2>
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between p-2 bg-slate-950 rounded">
                       <span className="text-slate-400">Total Recaudaciones:</span>
@@ -453,6 +534,25 @@
                       </span>
                     </div>
                   </div>
+                </div>
+
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                  <h2 className="text-sm font-bold text-amber-400 mb-3 uppercase">Historial de Gastos</h2>
+                  {gastos.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">No hay gastos.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {gastos.map((g, idx) => (
+                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-sm text-slate-200">{g.concepto}</p>
+                            <p className="text-xs text-slate-500">{g.fecha} • {g.categoria} (Por: {g.registrado_por})</p>
+                          </div>
+                          <span className="font-black text-rose-400 text-sm">-${Number(g.monto).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
